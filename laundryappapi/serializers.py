@@ -1,8 +1,16 @@
-# laundry/serializers.py
-from rest_framework import serializers
-from .models import Laundry
+# laundryappapi/serializers.py
 
-class LaundrySerializer(serializers.ModelSerializer):
+from rest_framework import serializers
+from .models import Order, OrderItem
+
+class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Laundry
+        model = OrderItem
+        fields = '__all__'
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
         fields = '__all__'

@@ -1,11 +1,14 @@
+# laundryappapi/admin.py
+
 from django.contrib import admin
-from .models import Laundry
+from .models import Order, OrderItem
 
-# Register your models here.
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 1
 
-class LaundryAdmin(admin.ModelAdmin):
-    list_display = ('nama', 'jenis_laundry', 'jumlah_berat', 'tanggal_masuk', 'tanggal_selesai', 'total_harga', 'status')
-    list_filter = ('status', 'tanggal_masuk')
-    search_fields = ('nama', 'hp')
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ('hp', 'nama', 'tanggal_masuk', 'tanggal_selesai', 'total_harga', 'status')
+    inlines = [OrderItemInline]
 
-admin.site.register(Laundry, LaundryAdmin)
+admin.site.register(Order, OrderAdmin)
