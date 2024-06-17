@@ -19,8 +19,8 @@ def add_order(request):
 
     with transaction.atomic():
         for item in items:
-            jenis_laundry = item.get('jenisLaundry', None)  # Menggunakan kunci 'jenisLaundry'
-            jumlah_berat = item.get('jumlahBerat', None)    # Menggunakan kunci 'jumlahBerat'
+            jenis_laundry = item.get('jenis_laundry', None)  # Correct key: 'jenis_laundry'
+            jumlah_berat = item.get('jumlah_berat', None)    # Correct key: 'jumlah_berat'
 
             if jenis_laundry is None or jumlah_berat is None:
                 return Response({'error': 'Required fields are missing in items'}, status=status.HTTP_400_BAD_REQUEST)
@@ -31,8 +31,8 @@ def add_order(request):
                 'tanggal_masuk': data.get('tanggal_masuk'),
                 'tanggal_selesai': data.get('tanggal_selesai'),
                 'catatan_khusus': data.get('catatan_khusus'),
-                'jenis_laundry': jenis_laundry,     # Sesuaikan dengan kunci 'jenisLaundry'
-                'jumlah_berat': jumlah_berat,       # Sesuaikan dengan kunci 'jumlahBerat'
+                'jenis_laundry': jenis_laundry,
+                'jumlah_berat': jumlah_berat,
                 'total_harga': data.get('total_harga'),
                 'status': '0',
             }
