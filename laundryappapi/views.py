@@ -12,33 +12,31 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
 
+# laundryappapi/views.py
 @api_view(['POST'])
 def add_order(request):
     data = request.data
-    items = data.get('items', [])
+    items_data = data.pop('items', [])  # Remove items from main data to process separately
 
-    with transaction.atomic():
-        order_data = {
-            'hp': data.get('hp'),
-            'nama': data.get('nama'),
-            'tanggal_masuk': data.get('tanggal_masuk'),
-            'tanggal_selesai': data.get('tanggal_selesai'),
-            'catatan_khusus': data.get('catatan_khusus'),
-            'total_harga': data.get('total_harga'),
-            'status': '0',
-        }
-        order_serializer = OrderSerializer(data=order_data)
-        if order_serializer.is_valid():
+    # Validate data with serializer
+    order_serializer = OrderSerializer(data=data)
+    if order_serializer.is_valid():
+        # Start transaction for atomicity
+        with transaction.atomic():
+            # Save order
             order = order_serializer.save()
-            for item in items:
+
+            # Save items related to order
+            for item_data in items_data:
                 OrderItem.objects.create(
                     order=order,
-                    jenis_laundry=item.get('jenisLaundry'),
-                    jumlah_berat=item.get('jumlahBerat')
+                    jenis_laundry=item_data.get('jenisLaundry'),
+                    jumlah_berat=item_data.get('jumlahBerat')
                 )
-            return Response({'message': 'Order created successfully!'}, status=status.HTTP_201_CREATED)
-        else:
-            return Response(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'message': 'Order created successfully!'}, status=status.HTTP_201_CREATED)
+    else:
+        return Response(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
 def update_order_status(request, pk):
