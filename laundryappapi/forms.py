@@ -11,7 +11,7 @@ class OrderForm(forms.ModelForm):
         model = Order
         fields = [
             'hp', 'nama', 'tanggal_masuk', 'tanggal_selesai',
-            'total_harga', 'catatan_khusus', 'status'
+            'total_harga', 'catatan_khusus', 'status', 'status_pembayaran'
         ]
 
     def clean_nama(self):
