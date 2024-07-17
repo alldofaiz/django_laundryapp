@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     OrderViewSet, 
+    login_user,
     get_all_users, 
     get_user, 
     register_user, 
@@ -23,6 +24,9 @@ router.register(r'orders', OrderViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+
+    # Login Users
+    path('login/', login_user, name='login_user'),
 
     # Users
     path('users/', include([

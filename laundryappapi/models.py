@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
+from django.contrib.auth.hashers import make_password, check_password
 from uuid import uuid4
 
 # Choices untuk status pesanan
@@ -32,6 +33,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_admin', True)
         return self.create_user(username, email, password, **extra_fields)
 
+
 # Model untuk pengguna (Admin/Kasir)
 class User(AbstractBaseUser):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
@@ -41,6 +43,9 @@ class User(AbstractBaseUser):
     laundry_store = models.ForeignKey('LaundryStore', on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
+    token = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     objects = UserManager()
 
@@ -55,6 +60,13 @@ class User(AbstractBaseUser):
 
     def has_module_perms(self, app_label):
         return True
+
+    def check_password(self, raw_password):
+        """
+        Return a boolean of whether the raw_password was correct.
+        Handles hashing formats behind the scenes.
+        """
+        return check_password(raw_password, self.password)
 
 # Model untuk toko laundry
 class LaundryStore(models.Model):
@@ -103,7 +115,6 @@ class OrderItem(models.Model):
     order = models.ForeignKey('Order', related_name='items', on_delete=models.CASCADE)
     jenis_laundry = models.CharField(max_length=50)
     jumlah_berat = models.DecimalField(max_digits=5, decimal_places=2)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return f"Item {self.id} - {self.jenis_laundry}"

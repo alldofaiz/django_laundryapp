@@ -1,9 +1,15 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import transaction
-from .models import LaundryStore, Order, OrderItem, User
-from .serializers import OrderSerializer, OrderItemSerializer, UserSerializer, UserRegistrationSerializer, LaundryStoreSerializer
+from django.contrib.auth import authenticate
+from django.core.mail import send_mail
+from django.contrib.auth.models import User
+from django.conf import settings
+from django.utils.crypto import get_random_string
+from .models import LaundryStore, Order, User
+from .serializers import OrderSerializer, UserSerializer, UserRegistrationSerializer, UserLoginSerializer, LaundryStoreSerializer
 
 # Order ViewSet
 class OrderViewSet(viewsets.ModelViewSet):
@@ -11,7 +17,6 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
 # LAUNDRY_STORE Views
-
 @api_view(['GET'])
 def get_all_laundry_stores(request):
     """
@@ -82,10 +87,70 @@ def update_laundry_store(request, pk):
             'message': 'Laundry Store updated successfully',
         })
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+# LOGIN USER Views
+@api_view(['POST'])
+def login_user(request):
+    """
+    Login a user and return JWT token
+    """
+    serializer = UserLoginSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.validated_data['user']
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'token': str(refresh.access_token),
+            'refresh': str(refresh),
+        })
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+# FORGET PASSWORD Views
+@api_view(['POST'])
+def request_password_reset(request):
+    email = request.data.get('email')
+
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Generate a unique token for password reset
+    token = get_random_string(length=32)
+
+    # Save the token to the user's profile (assuming you have a UserProfile model)
+    user.profile.reset_password_token = token
+    user.profile.save()
+
+    # Send email with reset link
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    subject = 'Reset Your Password'
+    message = f'Hi {user.username},\n\nPlease click the link below to reset your password:\n{reset_link}'
+    send_mail(subject, message, settings.EMAIL_HOST_USER, [user.email])
+
+    return Response({'message': 'Password reset link sent successfully.'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def confirm_password_reset(request):
+    token = request.data.get('token')
+    new_password = request.data.get('new_password')
+
+    try:
+        user = User.objects.get(profile__reset_password_token=token)
+    except User.DoesNotExist:
+        return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Set new password and clear the reset token
+    user.set_password(new_password)
+    user.profile.reset_password_token = None
+    user.save()
+
+    return Response({'message': 'Password reset successfully.'}, status=status.HTTP_200_OK)
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
 # USER Views
-
 @api_view(['GET'])
 def get_all_users(request):
     """
@@ -117,9 +182,15 @@ def register_user(request):
     serializer = UserRegistrationSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        user.token = access_token  # Simpan token ke dalam database
+        user.save()
+
         return Response({
             'message': 'User registered successfully!',
             'user_id': user.id,
+            'token': access_token,
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -149,36 +220,22 @@ def update_user(request, pk):
     serializer = UserSerializer(user, data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return Response(serializer.data)
+        return Response({
+            'message': 'User updated successfully',
+        })
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 # ORDER Views
-
 @api_view(['POST'])
 def add_order(request):
-    """
-    Add a new Order
-    """
-    data = request.data
-    items_data = data.pop('items', [])  # Remove items from main data to process separately
-    order_serializer = OrderSerializer(data=data)
-    if order_serializer.is_valid():
-        with transaction.atomic():
-            order = order_serializer.save()
-
-            for item_data in items_data:
-                OrderItem.objects.create(
-                    order=order,
-                    jenis_laundry=item_data.get('jenis_laundry'),
-                    jumlah_berat=item_data.get('jumlah_berat'),
-                    price=item_data.get('price')
-                )
-
-        return Response({'message': 'Order created successfully!'}, status=status.HTTP_201_CREATED)
-    else:
-        return Response(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer = OrderSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            'message' : 'Order created successfully',
+        }, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
 def update_order_status(request, pk):
@@ -194,7 +251,9 @@ def update_order_status(request, pk):
     serializer = OrderSerializer(order, data=data, partial=True)
     if serializer.is_valid():
         serializer.save()
-        return Response(serializer.data)
+        return Response({
+            'message': 'Order updated successfully',
+        })
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE'])
@@ -209,3 +268,4 @@ def delete_order(request, pk):
 
     order.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
